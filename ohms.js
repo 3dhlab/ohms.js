@@ -1,6 +1,7 @@
 "use strict";
 
 let jumpToTime;
+let transcriptFollower;
 
 async function getCachefile(url) {
     const response = await fetch(url);
@@ -301,9 +302,15 @@ function displayVttTranscript(vttTranscript, indexPoints) {
     for (let i = 1; i < vttArray.length; i+=2) {
         const timingsLine = vttArray[i];
         const caption = vttArray[i+1];
-        const timestamp = parseVttTimestamp(timingsLine);
+        const [startText, endText] = timingsLine.split('-->');
+        const timestamp = parseVttTimestamp(startText);
+        const endTimestamp = parseVttTimestamp(endText || '');
 
         const para = document.createElement('p');
+        if (timestamp !== null && endTimestamp !== null && endTimestamp > timestamp) {
+            para.dataset.cueStart = timestamp;
+            para.dataset.cueEnd = endTimestamp;
+        }
         const span = document.createElement('span');
 
         if (timestamp !== previousTimestamp) {
@@ -377,7 +384,7 @@ function parseVttTimestamp(timestamp) {
     if (minutes > 59 || seconds > 59) {
         return null;
     }
-    return (hours * 3600) + (minutes * 60) + seconds;
+    return (hours * 3600) + (minutes * 60) + seconds + Number(match[4]) / 1000;
 }
 
 function extractVttFootnotes(vttTranscript) {
@@ -780,6 +787,14 @@ function displayTextContent(data, translate) {
         transcriptContainer.replaceChildren();
         viewer.classList.add('no-transcript');
     }
+    const nativeMedia = document.querySelector('#player audio, #player video');
+    if (nativeMedia && window.TranscriptFollow) {
+        if (transcriptFollower?.media === nativeMedia) transcriptFollower.refresh();
+        else {
+            transcriptFollower?.destroy();
+            transcriptFollower = new window.TranscriptFollow(nativeMedia);
+        }
+    }
     if (data.index_points.length) {
         indexContainer.replaceChildren(displayIndex(data.index_points, translate));
     } else {
@@ -858,7 +873,11 @@ function setListeners() {
         if (target.matches('a.timestamp-link')) {
             e.preventDefault();
             if (jumpToTime && 'seconds' in target.dataset) {
-                jumpToTime(parseInt(target.dataset.seconds, 10));
+                const seconds = Number(target.dataset.seconds);
+                if (Number.isFinite(seconds) && seconds >= 0) {
+                    jumpToTime(seconds);
+                    transcriptFollower?.explicitSeek();
+                }
             }
             return;
         }

@@ -1,0 +1,6 @@
+{
+  "name": "ohms-viewer-tests",
+  "private": true,
+  "scripts": {"test": "node --test tests/transcript-follow.test.cjs", "demo": "node tests/server.cjs"},
+  "devDependencies": {"playwright": "1.62.1"}
+}
