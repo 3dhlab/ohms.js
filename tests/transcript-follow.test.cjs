@@ -12,6 +12,8 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
     const context = await browser.newContext({viewport:{width:1100,height:850},reducedMotion:'reduce'});
     // Tests need no remote fonts, scripts, analytics, or media.
     await context.route('**/*', route => route.request().url().startsWith(server.url) ? route.continue() : route.abort());
+    context.setDefaultTimeout(10000);
+    context.setDefaultNavigationTimeout(10000);
     const page = await context.newPage(), errors=[];
     page.on('pageerror', e => errors.push(e.message));
     const media = () => page.locator('#player audio, #player video');
@@ -31,7 +33,6 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
         await page.evaluate(async time => {
             const m=document.querySelector('#player audio, #player video');
             m.pause();m.playbackRate=1;m.currentTime=time;
-            if (m.seeking) await new Promise(resolve=>m.addEventListener('seeked',resolve,{once:true}));
             await m.play();
         },time);
         await page.locator('.transcript-follow-return').click();
