@@ -30,9 +30,14 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
         await page.evaluate(() => {document.querySelector('#player audio, #player video').muted=true;});
     };
     const playAt = async time => {
-        await page.evaluate(async time => {
+        await page.evaluate(time => {
             const m=document.querySelector('#player audio, #player video');
-            m.currentTime=time;await m.play();
+            m.currentTime=time;m.play().catch(() => {});
+        },time);
+        // Verify playback advancement rather than promise settlement after seeks.
+        await page.waitForFunction(time => {
+            const m=document.querySelector('#player audio, #player video');
+            return !m.paused && m.currentTime>time && m.currentTime<time+1.5;
         },time);
         await page.locator('.transcript-follow-return').click();
         await page.waitForTimeout(200);
