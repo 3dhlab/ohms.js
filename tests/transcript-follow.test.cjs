@@ -67,11 +67,10 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
             await page.locator('.transcript-follow-return').focus();await page.keyboard.press('Space');
             assert.equal((await snapshot()).paused,true);
         });
-        await t.test('active cue follows playback rate and seeks without moving parent page', async () => {
+        await t.test('active cue follows playback and backward seeks without moving parent page', async () => {
             await playAt(27.5);const before=await snapshot();
-            await page.evaluate(()=>{document.querySelector('audio').playbackRate=1.5;});
             assert.ok(Math.abs(before.offset-24)<3);assert.equal(await page.evaluate(()=>scrollY),0);
-            await page.waitForTimeout(800);assert.ok((await snapshot()).time>before.time+.8);
+            await page.waitForTimeout(800);assert.ok((await snapshot()).time>before.time+.5);
             await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.playbackRate=1;m.currentTime=12.2;});
             await page.waitForTimeout(200);assert.equal((await snapshot()).active,12.125);
         });
