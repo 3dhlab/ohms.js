@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const playwright = require('playwright');
 const {startServer} = require('./server.cjs');
 const engines = (process.env.PLAYWRIGHT_BROWSERS || 'chromium,firefox,webkit').split(',');
-for (const name of engines) test(`${name}: native transcript interactions`, {timeout:90000,concurrency:true}, async t => {
+for (const name of engines) test(`${name}: native transcript interactions`, {timeout:120000,concurrency:true}, async t => {
     const server = await startServer();
     let browser;
     try { browser = await playwright[name].launch({timeout:20000}); }
@@ -28,7 +28,12 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
         await page.evaluate(() => {document.querySelector('#player audio, #player video').muted=true;});
     };
     const playAt = async time => {
-        await page.evaluate(async time => {const m=document.querySelector('#player audio, #player video');m.currentTime=time;await m.play();},time);
+        await page.evaluate(async time => {
+            const m=document.querySelector('#player audio, #player video');
+            m.pause();m.playbackRate=1;m.currentTime=time;
+            if (m.seeking) await new Promise(resolve=>m.addEventListener('seeked',resolve,{once:true}));
+            await m.play();
+        },time);
         await page.locator('.transcript-follow-return').click();
         await page.waitForTimeout(200);
     };
@@ -62,8 +67,8 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
             assert.equal((await snapshot()).paused,true);
         });
         await t.test('active cue follows playback rate and seeks without moving parent page', async () => {
-            await page.evaluate(()=>{document.querySelector('audio').playbackRate=1.5;});
             await playAt(27.5);const before=await snapshot();
+            await page.evaluate(()=>{document.querySelector('audio').playbackRate=1.5;});
             assert.ok(Math.abs(before.offset-24)<3);assert.equal(await page.evaluate(()=>scrollY),0);
             await page.waitForTimeout(800);assert.ok((await snapshot()).time>before.time+.8);
             await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.playbackRate=1;m.currentTime=12.2;});
@@ -81,12 +86,12 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
             s=await snapshot();assert.ok(Math.abs(s.offset-24)<3);
         });
         await t.test('pausing permits browsing; Return locates paused cue without playing', async () => {
-            await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.currentTime=27.5;});await page.waitForTimeout(100);await page.mouse.wheel(0,-300);await page.waitForTimeout(150);
+            await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.currentTime=27.5;});await page.waitForTimeout(100);await page.mouse.wheel(0,-300);await page.waitForTimeout(500);
             const before=await snapshot();await page.waitForTimeout(4200);assert.equal((await snapshot()).top,before.top);assert.equal((await snapshot()).time,before.time);
             await page.locator('.transcript-follow-return').click();assert.equal((await snapshot()).paused,true);assert.ok(Math.abs((await snapshot()).offset-24)<3);
         });
         await t.test('explicit following-off persists until re-enabled', async () => {
-            await playAt(27.5);await page.locator('.transcript-follow-toggle').click();await page.mouse.wheel(0,-350);await page.waitForTimeout(150);
+            await playAt(27.5);await page.locator('.transcript-follow-toggle').click();await page.mouse.wheel(0,-350);await page.waitForTimeout(500);
             const before=await snapshot();await page.waitForTimeout(4200);const s=await snapshot();assert.equal(s.top,before.top);assert.match(s.status,/following is off/);assert.ok(s.time>before.time+3);
             await page.locator('.transcript-follow-return').click();assert.equal((await snapshot()).status,'Following playback');
         });

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 function tone() {
-    const rate = 8000, samples = rate * 60, out = Buffer.alloc(44 + samples * 2);
+    const rate = 48000, samples = rate * 60, out = Buffer.alloc(44 + samples * 2);
     out.write('RIFF'); out.writeUInt32LE(out.length - 8, 4); out.write('WAVEfmt ', 8);
     out.writeUInt32LE(16, 16); out.writeUInt16LE(1, 20); out.writeUInt16LE(1, 22);
     out.writeUInt32LE(rate, 24); out.writeUInt32LE(rate * 2, 28);
