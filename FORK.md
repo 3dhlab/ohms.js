@@ -32,3 +32,10 @@ not include an editor or automatic voice attribution.
 See the [README](README.md) for supported behavior, demo commands and browser
 checks. The synthetic media's provenance is documented in
 [tests/fixtures/README.md](tests/fixtures/README.md).
+
+## Synthetic example
+
+The screenshot below shows generated captions and a tone fixture in the upstream
+viewer styling. It contains no interview content or collection records.
+
+![Timed transcript following with the active passage and playback controls](docs/transcript-follow.png)
