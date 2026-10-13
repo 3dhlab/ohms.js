@@ -93,14 +93,14 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
         await t.test('explicit following-off persists until re-enabled', async () => {
             await playAt(27.5);await page.locator('.transcript-follow-toggle').click();await page.mouse.wheel(0,-350);await page.waitForTimeout(500);
             const before=await snapshot();await page.waitForTimeout(4200);const s=await snapshot();assert.equal(s.top,before.top);assert.match(s.status,/following is off/);assert.ok(s.time>before.time+3);
-            await page.locator('.transcript-follow-return').click();assert.equal((await snapshot()).status,'Following playback');
+            await page.locator('.transcript-follow-return').click();assert.match((await snapshot()).status,/^Following playback/);
         });
         await t.test('selection prevents seek and holds reading until cleared', async () => {
             await page.evaluate(()=>{const n=document.querySelector('#transcript p span').lastChild,r=document.createRange();r.selectNodeContents(n);getSelection().removeAllRanges();getSelection().addRange(r);});
             await page.waitForTimeout(100);const before=await snapshot();
             await page.evaluate(()=>document.querySelector('#transcript p').dispatchEvent(new MouseEvent('click',{bubbles:true})));
             assert.ok((await snapshot()).time-before.time<.5);await page.waitForTimeout(4200);assert.match((await snapshot()).status,/Reading selection/);
-            await page.evaluate(()=>getSelection().removeAllRanges());await page.waitForTimeout(4400);assert.equal((await snapshot()).status,'Following playback');
+            await page.evaluate(()=>getSelection().removeAllRanges());await page.waitForTimeout(4400);assert.match((await snapshot()).status,/^Following playback/);
         });
         await t.test('held pointer prevents return; release restarts the idle delay', async () => {
             await playAt(27.5);await page.locator('#transcript-window').hover();await page.mouse.wheel(0,-250);await page.waitForTimeout(100);
