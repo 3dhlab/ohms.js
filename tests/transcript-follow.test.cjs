@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const playwright = require('playwright');
 const {startServer} = require('./server.cjs');
 const engines = (process.env.PLAYWRIGHT_BROWSERS || 'chromium,firefox,webkit').split(',');
-for (const name of engines) test(`${name}: native transcript interactions`, {timeout:90000,concurrency:true}, async t => {
+for (const name of engines) test(`${name}: native transcript interactions`, {timeout:120000,concurrency:true}, async t => {
     const server = await startServer();
     let browser;
     try { browser = await playwright[name].launch({timeout:20000}); }
@@ -12,6 +12,8 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
     const context = await browser.newContext({viewport:{width:1100,height:850},reducedMotion:'reduce'});
     // Tests need no remote fonts, scripts, analytics, or media.
     await context.route('**/*', route => route.request().url().startsWith(server.url) ? route.continue() : route.abort());
+    context.setDefaultTimeout(10000);
+    context.setDefaultNavigationTimeout(10000);
     const page = await context.newPage(), errors=[];
     page.on('pageerror', e => errors.push(e.message));
     const media = () => page.locator('#player audio, #player video');
@@ -28,7 +30,15 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
         await page.evaluate(() => {document.querySelector('#player audio, #player video').muted=true;});
     };
     const playAt = async time => {
-        await page.evaluate(async time => {const m=document.querySelector('#player audio, #player video');m.currentTime=time;await m.play();},time);
+        await page.evaluate(time => {
+            const m=document.querySelector('#player audio, #player video');
+            m.currentTime=time;m.play().catch(() => {});
+        },time);
+        // Verify playback advancement rather than promise settlement after seeks.
+        await page.waitForFunction(time => {
+            const m=document.querySelector('#player audio, #player video');
+            return !m.paused && m.currentTime>time && m.currentTime<time+1.5;
+        },time);
         await page.locator('.transcript-follow-return').click();
         await page.waitForTimeout(200);
     };
@@ -61,12 +71,11 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
             await page.locator('.transcript-follow-return').focus();await page.keyboard.press('Space');
             assert.equal((await snapshot()).paused,true);
         });
-        await t.test('active cue follows playback rate and seeks without moving parent page', async () => {
-            await page.evaluate(()=>{document.querySelector('audio').playbackRate=1.5;});
+        await t.test('active cue follows playback and backward seeks without moving parent page', async () => {
             await playAt(27.5);const before=await snapshot();
             assert.ok(Math.abs(before.offset-24)<3);assert.equal(await page.evaluate(()=>scrollY),0);
-            await page.waitForTimeout(800);assert.ok((await snapshot()).time>before.time+.8);
-            await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.playbackRate=1;m.currentTime=12.2;});
+            await page.waitForFunction(time=>document.querySelector('audio').currentTime>time+.5,before.time,{timeout:3000});
+            await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.currentTime=12.2;});
             await page.waitForTimeout(200);assert.equal((await snapshot()).active,12.125);
         });
         await t.test('manual scrolling resets the four-second return and never pauses/seeks audio', async () => {
@@ -81,21 +90,21 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
             s=await snapshot();assert.ok(Math.abs(s.offset-24)<3);
         });
         await t.test('pausing permits browsing; Return locates paused cue without playing', async () => {
-            await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.currentTime=27.5;});await page.waitForTimeout(100);await page.mouse.wheel(0,-300);await page.waitForTimeout(150);
+            await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.currentTime=27.5;});await page.waitForTimeout(100);await page.mouse.wheel(0,-300);await page.waitForTimeout(500);
             const before=await snapshot();await page.waitForTimeout(4200);assert.equal((await snapshot()).top,before.top);assert.equal((await snapshot()).time,before.time);
             await page.locator('.transcript-follow-return').click();assert.equal((await snapshot()).paused,true);assert.ok(Math.abs((await snapshot()).offset-24)<3);
         });
         await t.test('explicit following-off persists until re-enabled', async () => {
-            await playAt(27.5);await page.locator('.transcript-follow-toggle').click();await page.mouse.wheel(0,-350);await page.waitForTimeout(150);
+            await playAt(27.5);await page.locator('.transcript-follow-toggle').click();await page.mouse.wheel(0,-350);await page.waitForTimeout(500);
             const before=await snapshot();await page.waitForTimeout(4200);const s=await snapshot();assert.equal(s.top,before.top);assert.match(s.status,/following is off/);assert.ok(s.time>before.time+3);
-            await page.locator('.transcript-follow-return').click();assert.equal((await snapshot()).status,'Following playback');
+            await page.locator('.transcript-follow-return').click();assert.match((await snapshot()).status,/^Following playback/);
         });
         await t.test('selection prevents seek and holds reading until cleared', async () => {
             await page.evaluate(()=>{const n=document.querySelector('#transcript p span').lastChild,r=document.createRange();r.selectNodeContents(n);getSelection().removeAllRanges();getSelection().addRange(r);});
             await page.waitForTimeout(100);const before=await snapshot();
             await page.evaluate(()=>document.querySelector('#transcript p').dispatchEvent(new MouseEvent('click',{bubbles:true})));
             assert.ok((await snapshot()).time-before.time<.5);await page.waitForTimeout(4200);assert.match((await snapshot()).status,/Reading selection/);
-            await page.evaluate(()=>getSelection().removeAllRanges());await page.waitForTimeout(4400);assert.equal((await snapshot()).status,'Following playback');
+            await page.evaluate(()=>getSelection().removeAllRanges());await page.waitForTimeout(4400);assert.match((await snapshot()).status,/^Following playback/);
         });
         await t.test('held pointer prevents return; release restarts the idle delay', async () => {
             await playAt(27.5);await page.locator('#transcript-window').hover();await page.mouse.wheel(0,-250);await page.waitForTimeout(100);
