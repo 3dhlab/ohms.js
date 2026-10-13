@@ -1,5 +1,8 @@
 # ohms.js
 
+This is the **3DH Lab development fork**. See [fork maintenance and contribution
+notes](FORK.md), including the focused upstream proposal and planned work.
+
 ohms.js is a Javascript-based viewer for [Oral History Metadata Synchronizer (OHMS)](https://www.oralhistoryonline.org)
 XML files.
 
