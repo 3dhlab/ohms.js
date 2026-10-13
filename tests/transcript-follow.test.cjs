@@ -32,8 +32,7 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
     const playAt = async time => {
         await page.evaluate(async time => {
             const m=document.querySelector('#player audio, #player video');
-            m.pause();m.playbackRate=1;m.currentTime=time;
-            await m.play();
+            m.currentTime=time;await m.play();
         },time);
         await page.locator('.transcript-follow-return').click();
         await page.waitForTimeout(200);
@@ -71,7 +70,7 @@ for (const name of engines) test(`${name}: native transcript interactions`, {tim
             await playAt(27.5);const before=await snapshot();
             assert.ok(Math.abs(before.offset-24)<3);assert.equal(await page.evaluate(()=>scrollY),0);
             await page.waitForTimeout(800);assert.ok((await snapshot()).time>before.time+.5);
-            await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.playbackRate=1;m.currentTime=12.2;});
+            await page.evaluate(()=>{const m=document.querySelector('audio');m.pause();m.currentTime=12.2;});
             await page.waitForTimeout(200);assert.equal((await snapshot()).active,12.125);
         });
         await t.test('manual scrolling resets the four-second return and never pauses/seeks audio', async () => {
